@@ -26,10 +26,9 @@ Overall Recycling and Ash Fractions
 
 city_waste = [100; 170];
 
-ash = round(Int, 100*(0.15*0.08 + 0.4*0.07 + 0.05*0.05 +0.03*0.1 + 0.02*0.15 +0.05*0.02 +0.18*0.02 +0.04+0.02+0.02+0.01+0.03));
-recy = round(Int, 100*(0.15*0 + 0.4*0.55 + 0.05*0.15 +0.03*0.1 + 0.02*0 +0.05*0.3 +0.18*0.4 +0.04*0.6+0.02*0.75 +0.02*0.8+0.01*0.5 + 0.03*0));
-
-secrecy = round(Int, 100*(0.15*1*0.08 + 0.4*0.45*0.07 + 0.05*0.85*0.05 +0.03*0.9*0.1 + 0.02*1*0.15 +0.05*0.7*0.02 +0.18*0.6*0.02 +0.04*0.4*1+0.02*0.25*1 +0.02*0.2*1+0.01*0.5*1 + 0.03*1*0.7));
+ash = round(100*(0.15*0.08 + 0.4*0.07 + 0.05*0.05 +0.03*0.1 + 0.02*0.15 +0.05*0.02 +0.18*0.02 +0.04+0.02+0.02+0.01+0.03), digits=2);
+recy = round(100*(0.15*0 + 0.4*0.55 + 0.05*0.15 +0.03*0.1 + 0.02*0 +0.05*0.3 +0.18*0.4 +0.04*0.6+0.02*0.75 +0.02*0.8+0.01*0.5 + 0.03*0), digits=2);
+secrecy = round(100*(0.15*1*0.08 + 0.4*0.45*0.07 + 0.05*0.85*0.05 +0.03*0.9*0.1 + 0.02*1*0.15 +0.05*0.7*0.02 +0.18*0.6*0.02 +0.04*0.4*1+0.02*0.25*1 +0.02*0.2*1+0.01*0.5*1 + 0.03*1*0.7), digits =2);
 
 # WTE = 1, MRF = 2, LF = 3
 cap = [150 350 200];
@@ -41,51 +40,51 @@ rec = 45;
 ```
 * The overall ash fraction is `j ash`%
 * The overall recycling fraction is `j recy`%
+* The secondary ash fraction is `j secrecy`%
 
 ## Problem 1.2
 
+The decision variables are:
+* Waste transported from city i to disposal facility j: W(i,j) (Mg/d)
+* Residual waste transported from disposal facility k to disposal facility k: R(k,j) (Mg/d)
+* Operational status (on/off) of disposal facility j: Y(j) (binary)
+
 ```julia 
-using Jump
+#import Pkg; Pkg.add("JuMP")
+
+using JuMP
 using Cbc
 
-waste=Model(Cbc.optimizer)
+waste=Model(Cbc.Optimizer)
 I=1:2 #cities
 J=1:3 #facilities
-# do i need a k here for disposal? K = 1:3
 
 @variable(waste, W[i in I, j in J]>=0)
 @variable(waste, R[k in J, j in J]>=0)
 @variable(waste, Y[j in J], Bin)
 
 ```
-
-Variables: 
-W
-R
-Y
-
-
 ## Problem 1.3
 The objective is to minimize the costs of implementing the MSW disposal plan. 
 Costs will include fixed operational cost, tipping cost, recycling cost, and transportation cost.
 I calculated the W and R matrix values by hand for the objective. 
 The zero values are because the Landfill and WTE will not generate any recycling, and the recycling cannot recycle to itself. 
 
-```math 
+```math &= 
 
-WTE cost = 2500*Y[1] + 60*(W[1,1] + W[2,1] + R[2,1]);
+WTE cost = 2500*Y[1] + 60*(W[1,1] + W[2,1] + R[2,1])
 
-MRF cost = 1500*Y[2] + 7*(W[1,2] + W[2,2]) + (0.38)*45*(W[1,2] + W[2,2]));
+MRF cost = 1500*Y[2] + 7*(W[1,2] + W[2,2]) + (0.38)*45*(W[1,2] + W[2,2]))
 
-LF cost = 2000*Y[3] + 50*(W[1,3] + W[2,3] + R[1,3] + R[2,3]);
+LF cost = 2000*Y[3] + 50*(W[1,3] + W[2,3] + R[1,3] + R[2,3])
 
-transportation costs = 1.5*(15*W[1,1] + 5*W[1,2] + 30*W[1,3] + 10*W[2,1] + 15*W[2,2] + 25*W[2,3] + 18*R[1,3] + 15*R[2,1] + 32*R[2,3]);
+transportation costs = 1.5*(15*W[1,1] + 5*W[1,2] + 30*W[1,3] + 10*W[2,1] + 15*W[2,2] + 25*W[2,3] + 18*R[1,3] + 15*R[2,1] + 32*R[2,3])
 
 ```
 
 ```julia
 
-@objective(waste, Min, sum([82.5 31.6 95; 75 46.6 87.5].*W) + 
+@objective(waste, Min, sum([82.5 14.5+((recy/100)*45) 95; 75 29.5+((recy/100)*45) 87.5].*W) + 
 sum([0 0 77; 82.5 0 98; 0 0 0].*R) + 
 sum([2500,1500,2000].*Y))
 
@@ -95,26 +94,28 @@ sum([2500,1500,2000].*Y))
 Constraints include:
 
 * Capacity constraints for each facility cannot be exceeded 
-* The sum of the material processed by all the facilities must equal the waste produced by the cities (meet demand)
+* The sum of the material processed by all the facilities must equal the waste produced by the cities (all waste must be disposed of)
 * The waste leaving the WTE is based on the ash fraction , and the waste leaving the MRF is based on the recycling fraction
 * Commitment and non-negativity constraints based on facility usage (if one facility is not recieving waste, it won't be used and Y = 0)
 * Residuals from facility x cannot go to facility x (diagonal constraint = 0)
 
-```julia
+Constraints are complete because they use a mass balance approach to cover capacity constraints, while also dealing with residual destinations and commitment status. 
 
+```julia
+# mass balance 
 @constraint(waste, city[i in I], sum(W[i,:]) == city_waste[i])
 @constraint(waste, wte, W[1,1] + W[2,1] + R[2,1] <= 150)
-@constraint(waste, mrf, W[1,2], W[2,2] <= 130)
+@constraint(waste, mrf, W[1,2] + W[2,2] <= 350)
 @constraint(waste, lf, W[1,3] + W[2,3] + R[2,3] + R[1,3] <= 200)
 # residuals
-@constraint(waste, resid1, R[1,3] == (ash/100).*(W[1,1] + W[2,1] + R[2,1]))
-@constraint(waste, resid2, R[2,1] + R[2,3] = ((100-recy)/100).*(W[1,2] + W[2,2]))
+@constraint(waste, resid1, R[1,3] == (ash/100).*(W[1,1] + W[2,1])+((secrecy/100).*R[2,1]));
+@constraint(waste, resid2, R[2,1] + R[2,3] == ((100-recy)/100).*(W[1,2] + W[2,2]))
 @constraint(waste, resid3, sum(R[3,:]) == 0)
 @constraint(waste, nonresiddiag, sum(R[i,i] for i in I) == 0)
 @constraint(waste, noresid, R[1,2] == 0)
 # commitment
 @constraint(waste, commit1, !Y[1] => {W[1,1] + W[2,1] + R[2,1] ==0})
-@constraint(waste, commit1, !Y[2] => {W[1,2] + W[2,2] == 0})
+@constraint(waste, commit2, !Y[2] => {W[1,2] + W[2,2] == 0})
 @constraint(waste, commit3, Y[3] == 1)
 
 ```
@@ -136,17 +137,79 @@ value.(W)
 
 value.(R)
 ```
+```julia; term=true
 
-
+value.(Y)
+```
 
 ## Problem 1.6
+
+System diagram:
+![img](system1.png)
+
+The optimal solution is to not utilize the MRF, only using the WTE and LF faciliies. The cost is $28,945/d.
+
+* City 1 should send 84.7 Mg/d to the WTE, and the remaining 15.3 Mg/d to the LF
+* City 2 should send all 170 Mg/d to the LF 
+* The WTE sends 14.7 Mg/d to the LF after combustion 
 
 # Problem 2
 
 ## Problem 2.1
+The only change to the model's objective would be increasing the tipping fee variable and changing the transportation cost coefficient 1.5 to 2. 
+No new variables need to be defined, or constraints made because the carbon tax doesn't refer to a specific emmisions limit. 
+The new policy will change where the waste gets transported since it now costs more to move MSW to the WTE, and it costs more to transport it. 
+Therefore the cities may probably want to consider facilities that are closer in distance depending on what the model suggests. 
+
+```math &= 
+
+WTE cost = 2500*Y[1] + 75*(W[1,1] + W[2,1] + R[2,1])
+
+MRF cost = 1500*Y[2] + 7*(W[1,2] + W[2,2]) + (0.38)*45*(W[1,2] + W[2,2]))
+
+LF cost = 2000*Y[3] + 50*(W[1,3] + W[2,3] + R[1,3] + R[2,3])
+
+transportation costs = 2*(15*W[1,1] + 5*W[1,2] + 30*W[1,3] + 10*W[2,1] + 15*W[2,2] + 25*W[2,3] + 18*R[1,3] + 15*R[2,1] + 32*R[2,3])
+
+```
 
 ## Problem 2.2
 
+```julia 
+
+@objective(waste, Min, sum([105 17+((recy/100)*45) 110; 95 37+((recy/100)*45) 100].*W) + 
+sum([0 0 86; 105 0 114; 0 0 0].*R) + 
+sum([2500,1500,2000].*Y))
+```
+```julia
+set_silent(waste)
+optimize!(waste)
+objective_value(waste)
+```
+```julia; term=true
+
+value.(W)
+```
+```julia; term=true
+
+value.(R)
+```
+```julia; term=true
+
+value.(Y)
+```
+
 ## Problem 2.3
+
+System Diagram:
+![img](system2.png)
+
+The optimal solution is to not utilize the WTE, only using the MRF and LF faciliies. This makes sense as the WTE has become more expensive. 
+The cost is 33,127$/d, more expensive now than without the tax which is also expected.
+
+* City 1 should send all 100Mg/d to the MRF. The MRF is closer than the WTE, which is now more expensive too
+* City 2 should send 85.4 Mg/d to the MRF and 84.6 Mg/d to the LF. This is almost a half-half split. 
+* The MRF sends 115.43 Mg/d to the LF after recycling 
+
 
 # References
